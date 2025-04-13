@@ -1,2 +1,16 @@
-# AI_ChatBot_For_Teens
-A simple, interactive React app where teens can build rule-based chatbots without any coding. Designed as part of a gamified AI learning platform to help teens learn computational thinking and logic through creative play.
+# Teen AI Chatbot Builder (React Demo)
+
+This is a lightweight, interactive web app where teens can build their own rule-based chatbot in just minutes. No coding required. The app is part of a larger vision for a gamified AI/ML learning platform for teens.
+
+## Features
+
+- Build a chatbot by defining "if-this-then-that" rules
+- Name your custom bot
+- Chat live with your creation
+- Clean, mobile-friendly UI using React and Tailwind CSS
+
+## Live Demo
+
+
+
+
