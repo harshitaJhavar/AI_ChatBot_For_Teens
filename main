@@ -1,0 +1,98 @@
+import React, { useState } from 'react';
+
+function BotBuilder({ onBuild }) {
+  const [botName, setBotName] = useState('');
+  const [rules, setRules] = useState([{ input: '', response: '' }]);
+
+  const updateRule = (index, key, value) => {
+    const newRules = [...rules];
+    newRules[index][key] = value;
+    setRules(newRules);
+  };
+
+  const addRule = () => {
+    setRules([...rules, { input: '', response: '' }]);
+  };
+
+  const handleBuild = () => {
+    const validRules = rules.filter(r => r.input && r.response);
+    onBuild({ name: botName || 'MyBot', rules: validRules });
+  };
+
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-2">Build Your Bot</h2>
+      <input
+        className="border p-2 mb-2 w-full"
+        placeholder="Bot name"
+        value={botName}
+        onChange={e => setBotName(e.target.value)}
+      />
+      {rules.map((rule, index) => (
+        <div key={index} className="mb-2">
+          <input
+            className="border p-1 mr-2"
+            placeholder="If user says..."
+            value={rule.input}
+            onChange={e => updateRule(index, 'input', e.target.value)}
+          />
+          <input
+            className="border p-1"
+            placeholder="Bot replies..."
+            value={rule.response}
+            onChange={e => updateRule(index, 'response', e.target.value)}
+          />
+        </div>
+      ))}
+      <button onClick={addRule} className="bg-blue-500 text-white p-2 mr-2 rounded">Add Rule</button>
+      <button onClick={handleBuild} className="bg-green-500 text-white p-2 rounded">Build Bot</button>
+    </div>
+  );
+}
+
+function ChatInterface({ bot, onReset }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+
+  const handleSend = () => {
+    const userMsg = { from: 'user', text: input };
+    const rule = bot.rules.find(r => r.input.toLowerCase() === input.toLowerCase());
+    const botMsg = { from: 'bot', text: rule ? rule.response : "I don't understand that yet." };
+    setMessages([...messages, userMsg, botMsg]);
+    setInput('');
+  };
+
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-2">Chat with {bot.name}</h2>
+      <div className="border h-48 overflow-y-auto p-2 mb-2">
+        {messages.map((msg, index) => (
+          <div key={index} className={msg.from === 'user' ? 'text-right' : 'text-left'}>
+            <span className="inline-block px-2 py-1 rounded bg-gray-200 m-1">
+              {msg.text}
+            </span>
+          </div>
+        ))}
+      </div>
+      <input
+        className="border p-2 w-full mb-2"
+        placeholder="Say something..."
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && handleSend()}
+      />
+      <button onClick={handleSend} className="bg-blue-500 text-white p-2 mr-2 rounded">Send</button>
+      <button onClick={onReset} className="bg-gray-400 text-white p-2 rounded">Reset Bot</button>
+    </div>
+  );
+}
+
+export default function App() {
+  const [bot, setBot] = useState(null);
+
+  return (
+    <div className="max-w-xl mx-auto mt-10">
+      {bot ? <ChatInterface bot={bot} onReset={() => setBot(null)} /> : <BotBuilder onBuild={setBot} />}
+    </div>
+  );
+}
