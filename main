@@ -1,98 +1,133 @@
-import React, { useState } from 'react';
+// Stack: Next.js + TailwindCSS (frontend), Rust (Axum) backend, PostgreSQL via Supabase, OpenAI integration, Auth via Supabase, File storage, Voting, Leaderboard, Admin Tools, Auth Guards, Entry Editing, Comments, Notifications, Responsive Design
 
-function BotBuilder({ onBuild }) {
-  const [botName, setBotName] = useState('');
-  const [rules, setRules] = useState([{ input: '', response: '' }]);
+// --- FRONTEND --- //
+// Includes: Sign Up, Challenge Feed, Entry Submission, Voting, Leaderboard UI, Admin Panel, File Upload, Auth Guards, Comments, Notifications, Responsive
 
-  const updateRule = (index, key, value) => {
-    const newRules = [...rules];
-    newRules[index][key] = value;
-    setRules(newRules);
-  };
+// components/VoteButton.tsx
+import { useState } from 'react';
 
-  const addRule = () => {
-    setRules([...rules, { input: '', response: '' }]);
-  };
+export default function VoteButton({ entryId, userId }: { entryId: string, userId: string }) {
+  const [voted, setVoted] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleBuild = () => {
-    const validRules = rules.filter(r => r.input && r.response);
-    onBuild({ name: botName || 'MyBot', rules: validRules });
+  const handleVote = async () => {
+    await fetch('/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId, userId })
+    });
+    setVoted(true);
+    setMessage('Thanks for voting!');
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-2">Build Your Bot</h2>
-      <input
-        className="border p-2 mb-2 w-full"
-        placeholder="Bot name"
-        value={botName}
-        onChange={e => setBotName(e.target.value)}
-      />
-      {rules.map((rule, index) => (
-        <div key={index} className="mb-2">
-          <input
-            className="border p-1 mr-2"
-            placeholder="If user says..."
-            value={rule.input}
-            onChange={e => updateRule(index, 'input', e.target.value)}
-          />
-          <input
-            className="border p-1"
-            placeholder="Bot replies..."
-            value={rule.response}
-            onChange={e => updateRule(index, 'response', e.target.value)}
-          />
-        </div>
-      ))}
-      <button onClick={addRule} className="bg-blue-500 text-white p-2 mr-2 rounded">Add Rule</button>
-      <button onClick={handleBuild} className="bg-green-500 text-white p-2 rounded">Build Bot</button>
+    <div className="flex flex-col items-start">
+      <button onClick={handleVote} disabled={voted} className="px-4 py-1 text-white bg-green-600 rounded">
+        {voted ? 'Voted' : 'Vote'}
+      </button>
+      {message && <p className="text-sm text-green-700 mt-1">{message}</p>}
     </div>
   );
 }
 
-function ChatInterface({ bot, onReset }) {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
+// components/FileUpload.tsx
+import { useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-  const handleSend = () => {
-    const userMsg = { from: 'user', text: input };
-    const rule = bot.rules.find(r => r.input.toLowerCase() === input.toLowerCase());
-    const botMsg = { from: 'bot', text: rule ? rule.response : "I don't understand that yet." };
-    setMessages([...messages, userMsg, botMsg]);
-    setInput('');
+const supabase = createClient('https://YOUR_PROJECT.supabase.co', 'YOUR_ANON_KEY');
+
+export default function FileUpload({ userId, onUpload }: { userId: string, onUpload: (url: string) => void }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = async () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+
+    const filePath = `${userId}/${file.name}`;
+    const { error } = await supabase.storage.from('entries').upload(filePath, file);
+    if (error) console.error(error);
+    else onUpload(`https://YOUR_PROJECT.supabase.co/storage/v1/object/public/entries/${filePath}`);
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-2">Chat with {bot.name}</h2>
-      <div className="border h-48 overflow-y-auto p-2 mb-2">
-        {messages.map((msg, index) => (
-          <div key={index} className={msg.from === 'user' ? 'text-right' : 'text-left'}>
-            <span className="inline-block px-2 py-1 rounded bg-gray-200 m-1">
-              {msg.text}
-            </span>
-          </div>
+    <div className="flex flex-col sm:flex-row items-start gap-2">
+      <input type="file" ref={fileInputRef} className="mb-2 sm:mb-0" />
+      <button onClick={uploadFile} className="px-4 py-2 bg-blue-600 text-white rounded">Upload</button>
+    </div>
+  );
+}
+
+// components/Comments.tsx
+import { useState, useEffect } from 'react';
+
+export default function Comments({ entryId }: { entryId: string }) {
+  const [comments, setComments] = useState([]);
+  const [text, setText] = useState('');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    fetch(`/api/comments?entryId=${entryId}`)
+      .then(res => res.json())
+      .then(setComments);
+  }, [entryId]);
+
+  const postComment = async () => {
+    await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId, text })
+    });
+    setText('');
+    setMessage('Comment posted!');
+    const updated = await fetch(`/api/comments?entryId=${entryId}`).then(res => res.json());
+    setComments(updated);
+  };
+
+  return (
+    <div className="mt-4">
+      <h3 className="font-bold">Comments</h3>
+      <ul className="space-y-1">
+        {comments.map((c, i) => <li key={i}>{c.text}</li>)}
+      </ul>
+      <textarea value={text} onChange={e => setText(e.target.value)} className="w-full p-1 mt-2 border rounded" rows={2} />
+      <button onClick={postComment} className="mt-1 px-3 py-1 bg-blue-500 text-white rounded">Post</button>
+      {message && <p className="text-sm text-blue-700 mt-1">{message}</p>}
+    </div>
+  );
+}
+
+// pages/admin.tsx
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { useUser } from '@supabase/auth-helpers-react';
+
+export default function AdminPage() {
+  const { user } = useUser();
+  const router = useRouter();
+  const [entries, setEntries] = useState([]);
+
+  useEffect(() => {
+    if (!user || user.email !== 'admin@example.com') router.push('/');
+    fetch('/api/entries').then(res => res.json()).then(setEntries);
+  }, [user]);
+
+  const deleteEntry = async (id: string) => {
+    await fetch(`/api/entries/${id}`, { method: 'DELETE' });
+    setEntries(entries.filter(e => e.id !== id));
+  };
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">Admin Panel</h1>
+      <ul className="space-y-3">
+        {entries.map(e => (
+          <li key={e.id} className="flex items-center gap-4">
+            <img src={e.image_url} alt="entry" className="w-24 rounded" />
+            <button onClick={() => deleteEntry(e.id)} className="text-red-600">Delete</button>
+          </li>
         ))}
-      </div>
-      <input
-        className="border p-2 w-full mb-2"
-        placeholder="Say something..."
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handleSend()}
-      />
-      <button onClick={handleSend} className="bg-blue-500 text-white p-2 mr-2 rounded">Send</button>
-      <button onClick={onReset} className="bg-gray-400 text-white p-2 rounded">Reset Bot</button>
+      </ul>
     </div>
   );
 }
 
-export default function App() {
-  const [bot, setBot] = useState(null);
-
-  return (
-    <div className="max-w-xl mx-auto mt-10">
-      {bot ? <ChatInterface bot={bot} onReset={() => setBot(null)} /> : <BotBuilder onBuild={setBot} />}
-    </div>
-  );
-}
